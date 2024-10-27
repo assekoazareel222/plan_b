@@ -8,13 +8,13 @@
     "build:css": "tailwindcss -i ./public/styles.css -o ./public/output.css --watch",
     "seed": "npx prisma seed --preview-feature",
     "dev": "npx ts-node-dev --respawn --transpile-only --ignore-watch 'node_modules' --respawn-options '--exec ts-node-dev' src/main.ts",
-
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "autoprefixer": "^10.4.20",
+    "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-myconnection": "^1.0.4",
     "mysql": "^2.18.1",

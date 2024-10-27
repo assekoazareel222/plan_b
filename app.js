@@ -4,8 +4,7 @@ const myConnection = require("express-myconnection");
 const mysql = require("mysql");
 const voitureRoutes = require("./routes/voitureRoutes");
 const dbConfig = require("./config/db");
-const cors = require("cors");
-app.use(cors());
+
 const app = express();
 app.use(bodyParser.json());
 app.use(express.json());
