@@ -11,25 +11,36 @@ const path = require("path");
 const fs = require("fs");
 
 const app = express();
-app.use(bodyParser.json());
-app.use(express.json());
 
-// Middleware pour traiter les données du formulaire
+// 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
+app.use(
+  cors({
+    origin: "http://127.0.0.1:5502", // Remplacez par le domaine autorisé en production
+    methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+    allowedHeaders:
+      "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
+  })
+);
+
+// 2. Configuration de body-parser et multer pour gérer les données de requête et les fichiers
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-// Configuration de multer pour les fichiers
 const upload = multer({ dest: "uploads/" });
 
-// Route pour gérer l'envoi du formulaire
+// Middleware de connexion à la base de données
+app.use(myConnection(mysql, dbConfig, "pool"));
+
+// Route pour gérer l'envoi d'email avec fichier
 app.post("/send-email", upload.single("image"), (req, res) => {
   const { name, email, brand, model, year, mileage, message } = req.body;
   const imagePath = req.file ? req.file.path : null;
 
-  // Configurer Nodemailer
+  // Configuration de Nodemailer (utilisez des variables d'environnement pour les informations sensibles)
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "assekoazareel222@gmail.com",
-      pass: "asseko1999",
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
     },
   });
 
@@ -45,7 +56,7 @@ app.post("/send-email", upload.single("image"), (req, res) => {
   // Envoi de l'email
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
-      console.log(error);
+      console.error("Erreur d'envoi d'email:", error);
       res.status(500).send("Erreur lors de l'envoi de l'email");
     } else {
       console.log("Email envoyé: " + info.response);
@@ -60,26 +71,8 @@ app.post("/send-email", upload.single("image"), (req, res) => {
     }
   });
 });
-app.use(cors()); // Autoriser toutes les origines
 
-// Middleware de connexion à la base de données
-app.use(myConnection(mysql, dbConfig, "pool"));
-
-// Middleware CORS
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  next();
-});
-
-// Route GET pour obtenir toutes les voitures
+// Routes pour obtenir les données des voitures et des ventes
 app.get("/", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
@@ -91,13 +84,13 @@ app.get("/", (req, res) => {
         if (erreur) {
           res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
         } else {
-          res.status(200).json(resultat); // Envoie des résultats en format JSON
+          res.status(200).json(resultat);
         }
       });
     }
   });
 });
-// Route GET pour obtenir toutes les voitures
+
 app.get("/vente", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
@@ -109,21 +102,17 @@ app.get("/vente", (req, res) => {
         if (erreur) {
           res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
         } else {
-          res.status(200).json(resultat); // Envoie des résultats en format JSON
+          res.status(200).json(resultat);
         }
       });
     }
   });
 });
-// Routes
+
+// Routes supplémentaires
 app.use("/voiture", voitureRoutes);
 
-// Lancer le serveur
-app.listen(3005, () => {
-  console.log("Serveur lancé sur le port 3005");
-});
-
-// Middleware pour gérer les erreurs de JSON
+// Middleware pour les erreurs JSON
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
     console.error("Erreur JSON:", err);
@@ -132,7 +121,7 @@ app.use((err, req, res, next) => {
   next();
 });
 
-// Route de test
-app.get("/park", (req, res) => {
-  res.send("Bonjour les voitures");
+// Démarrage du serveur
+app.listen(3005, () => {
+  console.log("Serveur lancé sur le port 3005");
 });
