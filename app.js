@@ -60,35 +60,11 @@ app.post("/send-email", upload.single("image"), (req, res) => {
     }
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+app.use(
+  cors({
+    origin: "http://127.0.0.1:5502", // Remplacez par votre origine front-end
+  })
+);
 
 // Middleware de connexion à la base de données
 app.use(myConnection(mysql, dbConfig, "pool"));
