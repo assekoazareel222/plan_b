@@ -39,8 +39,8 @@ app.post("/send-email", upload.single("image"), (req, res) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: "assekoazareel222@gmail.com",
+      pass: "asseko1999",
     },
   });
 
