@@ -15,12 +15,13 @@ const app = express();
 // 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
 app.use(
   cors({
-    origin: "http://127.0.0.1:5502", // Remplacez par le domaine autorisé en production
+    origin: ["http://127.0.0.1:5502", "http://localhost:5502"], // Autoriser les deux origines
     methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     allowedHeaders:
       "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
   })
 );
+
 
 // 2. Configuration de body-parser et multer pour gérer les données de requête et les fichiers
 app.use(bodyParser.json());
