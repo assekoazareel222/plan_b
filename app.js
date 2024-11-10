@@ -15,7 +15,7 @@ const app = express();
 // 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
 app.use(
   cors({
-    origin: ["*"], // Autoriser les deux origines
+    origin: ["https://assekoazareel222.github.io"], // Autoriser les deux origines
     methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     allowedHeaders:
       "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
