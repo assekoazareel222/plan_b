@@ -147,6 +147,86 @@ app.delete("/:id", (req, res) => {
   });
 });
 
+app.post("/vente/", (req, res) => {
+  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = `
+        INSERT INTO voiture (nom, boiteDeVitesse, prix, consommation, \`condition\`, image) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      connection.query(query, [nom, boiteDeVitesse, prix, consommation, condition, image], (erreur, resultat) => {
+        if (erreur) {
+          console.error("Erreur SQL:", erreur);
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
+        } else {
+          res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+        }
+      });
+    }
+  });
+});
+
+
+
+//route put oiture
+app.put("/vente/:id", (req, res) => {
+  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+  const { id } = req.params;  // Id de la voiture à mettre à jour
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = `
+        UPDATE voiture 
+        SET nom = ?, boiteDeVitesse = ?, prix = ?, consommation = ?, \`condition\` = ?, image = ? 
+        WHERE id = ?
+      `;
+      connection.query(query, [nom, boiteDeVitesse, prix, consommation, condition, image, id], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else if (resultat.affectedRows === 0) {
+          res.status(404).json({ message: "Voiture non trouvée" });
+        } else {
+          res.status(200).json({ message: "Voiture mise à jour avec succès" });
+        }
+      });
+    }
+  });
+});
+
+//route delete
+
+app.delete("/vente/:id", (req, res) => {
+  const { id } = req.params;  // Id de la voiture à supprimer
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = "DELETE FROM voiture WHERE id = ?";
+      connection.query(query, [id], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else if (resultat.affectedRows === 0) {
+          res.status(404).json({ message: "Voiture non trouvée" });
+        } else {
+          res.status(200).json({ message: "Voiture supprimée avec succès" });
+        }
+      });
+    }
+  });
+});
+
+
+
+
+
 
 
 
