@@ -15,7 +15,7 @@ const app = express();
 // 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
 app.use(
   cors({
-    origin: ["*" , "http://localhost:5502" , "https://biabia-motor.onrender.com"], // Autoriser les deux origines
+    origin: ["http://localhost:3000" , "http://localhost:5502" , "https://biabia-motor.onrender.com"], // Autoriser les deux origines
     methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     allowedHeaders:
       "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
