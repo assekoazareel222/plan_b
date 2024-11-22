@@ -2,9 +2,9 @@ const voitureModel = require("../models/voitureModel");
 
 exports.updateVoiture = (req, res) => {
   const id = req.params.id;
-  const { image, marque, model, annees, couleur, numero_de_serie } = req.body;
-
-  if (!marque || !model || !annees || !couleur || !numero_de_serie) {
+  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+  	 
+  if (!nom || !boiteDeVitesse || !prix || !consommation || !condition) {
     return res
       .status(400)
       .json({ error: "Toutes les données doivent être fournies" });
@@ -30,10 +30,10 @@ exports.updateVoiture = (req, res) => {
       }
 
       const updateSql =
-        "UPDATE voiture SET image = ?, marque = ?, model = ?, annees = ?, couleur = ?, numero_de_serie = ? WHERE id = ?";
+        "UPDATE voiture SET nom = ?, prix = ?, boiteDeVitesse = ?, consommation = ?, condition = ?, image = ? WHERE id = ?";
       connection.query(
         updateSql,
-        [image, marque, model, annees, couleur, numero_de_serie, id],
+        [nom, prix, boiteDeVitesse, consommation, image, condition, id],
         (updateError) => {
           if (updateError) {
             return res
@@ -69,9 +69,9 @@ exports.deleteVoiture = (req, res) => {
 };
 
 exports.addVoiture = (req, res) => {
-  const { image, marque, model, annees, couleur, numero_de_serie } = req.body;
-
-  if (!marque || !model || !annees || !couleur || !numero_de_serie) {
+  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+  	 
+  if (!nom || !boiteDeVitesse || !prix || !consommation || !condition) {
     return res
       .status(400)
       .json({ error: "Toutes les données doivent être fournies" });
@@ -85,10 +85,10 @@ exports.addVoiture = (req, res) => {
     }
 
     const sql =
-      "INSERT INTO voiture (image, marque, model, annees, couleur, numero_de_serie) VALUES (?, ?, ?, ?, ?, ?)";
+      "INSERT INTO voiture (nom, prix, boiteDeVitesse, consommation, condition, image) VALUES (?, ?, ?, ?, ?, ?)";
     connection.query(
       sql,
-      [image, marque, model, annees, couleur, numero_de_serie],
+      [nom, prix, boiteDeVitesse, consommation, condition, image],
       (insertError, insertResult) => {
         if (insertError) {
           return res

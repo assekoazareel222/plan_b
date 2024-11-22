@@ -31,47 +31,6 @@ const upload = multer({ dest: "uploads/" });
 // Middleware de connexion à la base de données
 app.use(myConnection(mysql, dbConfig, "pool"));
 
-// Route pour gérer l'envoi d'email avec fichier
-app.post("/send-email", upload.single("image"), (req, res) => {
-  const { name, email, brand, model, year, mileage, message } = req.body;
-  const imagePath = req.file ? req.file.path : null;
-
-  // Configuration de Nodemailer (utilisez des variables d'environnement pour les informations sensibles)
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: "assekoazareel222@gmail.com",
-      pass: "asseko1999",
-    },
-  });
-
-  // Contenu de l'email
-  const mailOptions = {
-    from: email,
-    to: "mikolodarselcarl@gmail.com",
-    subject: `Nouveau message de ${name}`,
-    text: `Nom: ${name}\nEmail: ${email}\nMarque: ${brand}\nModèle: ${model}\nAnnée: ${year}\nKilométrage: ${mileage}\nMessage:\n${message}`,
-    attachments: imagePath ? [{ path: imagePath }] : [],
-  };
-
-  // Envoi de l'email
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error("Erreur d'envoi d'email:", error);
-      res.status(500).send("Erreur lors de l'envoi de l'email");
-    } else {
-      console.log("Email envoyé: " + info.response);
-      res.send("Email envoyé avec succès !");
-    }
-
-    // Supprimer le fichier temporaire après envoi
-    if (imagePath) {
-      fs.unlink(imagePath, (err) => {
-        if (err) console.error("Erreur de suppression du fichier:", err);
-      });
-    }
-  });
-});
 
 // Routes pour obtenir les données des voitures et des ventes
 app.get("/", (req, res) => {
@@ -109,6 +68,87 @@ app.get("/vente", (req, res) => {
     }
   });
 });
+
+//routes post voiture
+
+app.post("/", (req, res) => {
+  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = `
+        INSERT INTO voiture (nom, boiteDeVitesse, prix, consommation, \`condition\`, image) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      connection.query(query, [nom, boiteDeVitesse, prix, consommation, condition, image], (erreur, resultat) => {
+        if (erreur) {
+          console.error("Erreur SQL:", erreur);
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
+        } else {
+          res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+        }
+      });
+    }
+  });
+});
+
+
+
+//route put oiture
+app.put("/:id", (req, res) => {
+  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+  const { id } = req.params;  // Id de la voiture à mettre à jour
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = `
+        UPDATE voiture 
+        SET nom = ?, boiteDeVitesse = ?, prix = ?, consommation = ?, \`condition\` = ?, image = ? 
+        WHERE id = ?
+      `;
+      connection.query(query, [nom, boiteDeVitesse, prix, consommation, condition, image, id], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else if (resultat.affectedRows === 0) {
+          res.status(404).json({ message: "Voiture non trouvée" });
+        } else {
+          res.status(200).json({ message: "Voiture mise à jour avec succès" });
+        }
+      });
+    }
+  });
+});
+
+//route delete
+
+app.delete("/:id", (req, res) => {
+  const { id } = req.params;  // Id de la voiture à supprimer
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = "DELETE FROM voiture WHERE id = ?";
+      connection.query(query, [id], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else if (resultat.affectedRows === 0) {
+          res.status(404).json({ message: "Voiture non trouvée" });
+        } else {
+          res.status(200).json({ message: "Voiture supprimée avec succès" });
+        }
+      });
+    }
+  });
+});
+
+
+
 
 // Routes supplémentaires
 app.use("/voiture", voitureRoutes);
