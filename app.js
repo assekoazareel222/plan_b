@@ -12,6 +12,13 @@ const fs = require("fs");
 
 const app = express();
 
+
+app.use('/images', express.static(path.join(__dirname, 'public/images')));
+
+
+
+
+
 // 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
 app.use(
   cors({
@@ -51,6 +58,10 @@ app.get("/", (req, res) => {
   });
 });
 
+
+
+
+
 app.get("/vente", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
@@ -68,6 +79,7 @@ app.get("/vente", (req, res) => {
     }
   });
 });
+
 
 //routes post voiture
 
@@ -147,7 +159,7 @@ app.delete("/:id", (req, res) => {
   });
 });
 
-app.post("/vente/", (req, res) => {
+app.post("/vente", (req, res) => {
   const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
 
   req.getConnection((erreur, connection) => {
@@ -223,26 +235,188 @@ app.delete("/vente/:id", (req, res) => {
   });
 });
 
-
-
-
-
-
-
-
-// Routes supplémentaires
-app.use("/voiture", voitureRoutes);
-
-// Middleware pour les erreurs JSON
-app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-    console.error("Erreur JSON:", err);
-    return res.status(400).json({ message: "Données JSON mal formées" });
-  }
-  next();
+app.get("/commande", (req, res) => {
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res
+        .status(500)
+        .json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      connection.query("SELECT * FROM commande", [], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else {
+          res.status(200).json(resultat);
+        }
+      });
+    }
+  });
 });
 
+//routes post voiture
+
+app.post("/commande", (req, res) => {
+  const { nomVoiture , nomClient, numeroTelephone , numeroWhatsapp ,  	adresseMail , adresse  } = req.body;
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = `
+        INSERT INTO commande (nomVoiture, nomClient, numeroTelephone, numeroWhatsapp, adresseMail, adresse) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      connection.query(query, [nomVoiture, nomClient, numeroTelephone, numeroWhatsapp, adresseMail, adresse], (erreur, resultat) => {
+        if (erreur) {
+          console.error("Erreur SQL:", erreur);
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
+        } else {
+          res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+        }
+      });
+    }
+  });
+});
+
+
+app.get("/commandevente", (req, res) => {
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res
+        .status(500)
+        .json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      connection.query("SELECT * FROM commandeVente", [], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else {
+          res.status(200).json(resultat);
+        }
+      });
+    }
+  });
+});
+
+app.get("/gestion", (req, res) => {
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res
+        .status(500)
+        .json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      connection.query("SELECT * FROM gestion", [], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else {
+          res.status(200).json(resultat);
+        }
+      });
+    }
+  });
+});
+// Configuration de Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'public/images'); // Le dossier où les fichiers seront stockés
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname); // Nom du fichier avec un timestamp pour l'unicité
+  }
+});
+
+const stock = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limite de taille à 5MB
+  fileFilter: (req, file, cb) => {
+    // Vérifier l'extension du fichier
+    const allowedTypes = /jpeg|jpg|png/;
+    if (!allowedTypes.test(file.mimetype)) {
+      return cb(new Error('Le fichier doit être une image JPEG, PNG ou JPG'));
+    }
+    cb(null, true);
+  }
+});
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Route POST avec Multer pour traiter le fichier et les autres champs
+app.post("/gestion", stock.single("image"), (req, res) => {
+  // Afficher les données envoyées en console
+  console.log("Données reçues:");
+  console.log("Fichier:", req.file);  // Affiche les détails du fichier téléchargé
+  console.log("Autres champs:", req.body);  // Affiche les autres données du formulaire
+
+  // Vérifier si un fichier est téléchargé
+  if (!req.file) {
+    return res.status(400).json({ error: "Aucun fichier téléchargé" });
+  }
+
+  // Extraire les autres données du formulaire
+  const { nom, marque, model, annes, kilometrage, message } = req.body;
+  const image = req.file ? `/images/${req.file.filename}` : null;  // URL de l'image
+
+  // Traitement de la requête et insertion dans la base de données
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = `
+        INSERT INTO gestion (nom, marque, model, annes, kilometrage, image, message)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      connection.query(query, [nom, marque, model, annes, kilometrage, image, message], (erreur, resultat) => {
+        if (erreur) {
+          console.error("Erreur SQL:", erreur); // Afficher l'erreur SQL
+          return res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
+        } else {
+          console.log("Réponse de l'API:", { message: "Voiture ajoutée avec succès", id: resultat.insertId });
+          return res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+        }
+      });
+    }
+  });
+});
+
+
+
+
+//routes post voiture
+
+app.post("/commandevente", (req, res) => {
+  const { nomVoiture , nomClient, numeroTelephone , numeroWhatsapp ,  	adresseMail , adresse  } = req.body;
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = `
+        INSERT INTO commandeVente (nomVoiture, nomClient, numeroTelephone, numeroWhatsapp, adresseMail, adresse) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      connection.query(query, [nomVoiture, nomClient, numeroTelephone, numeroWhatsapp, adresseMail, adresse], (erreur, resultat) => {
+        if (erreur) {
+          console.error("Erreur SQL:", erreur);
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
+        } else {
+          res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+        }
+      });
+    }
+  });
+});
+
+
+
+
+
+
+
+
 // Démarrage du serveur
-app.listen(3005, () => {
+app.listen(3006, () => {
   console.log("Serveur lancé sur le port 3005");
 });
