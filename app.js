@@ -392,7 +392,7 @@ app.post("/commande", (req, res) => {
 });
 
 
-app.get("/commandevente",isAuthenticated, (req, res) => {
+app.get("/commandevente", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
