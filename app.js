@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const myConnection = require("express-myconnection");
-const mysql = require("mysql");
+const mysql = require("mysql2");
 const voitureRoutes = require("./routes/voitureRoutes");
 const dbConfig = require("./config/db");
 const cors = require("cors");
@@ -10,11 +10,28 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
+const session = require('express-session');
+const bcrypt = require('bcryptjs'); 
+const dotenv = require('dotenv');
+dotenv.config();
+
+
 const app = express();
 
 
+
+// Middleware pour analyser les requêtes JSON
+app.use(express.json());
+
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+  port: process.env.DB_PORT || 3306  // Si pas de port spécifié, utiliser le port par défaut
+});
 
 
 
@@ -28,6 +45,95 @@ app.use(
       "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
   })
 );
+
+
+
+// Configuration de la session
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret',  // Clé secrète pour signer les cookies de session
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false, httpOnly: true }  // Utilisez `secure: true` si vous utilisez HTTPS
+}));
+// Inscription
+
+app.post('/signup', async (req, res) => {
+  const { email, username, password } = req.body;
+
+  try {
+    pool.getConnection(async (err, connection) => {
+      if (err) {
+        return res.status(500).json({ message: 'Erreur de connexion à la base de données' });
+      }
+
+      // Vérifier si l'utilisateur existe déjà
+      const results = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
+
+      if (results.length > 0) {
+        return res.status(400).json({ message: 'Email déjà utilisé' });
+      }
+
+      // Hasher le mot de passe
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Ajouter l'utilisateur à la base de données
+      await connection.query('INSERT INTO users (email, username, password) VALUES (?, ?, ?)', [email, username, hashedPassword]);
+
+      connection.release();  // Always release the connection back to the pool
+
+      return res.status(201).json({ message: 'Utilisateur créé avec succès' });
+    });
+  } catch (err) {
+    console.error('Erreur lors de l\'inscription:', err);
+    res.status(500).json({ message: 'Erreur interne lors de l\'inscription' });
+  }
+});
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // Utiliser pool.promise() pour gérer les promesses
+    const [results] = await pool.promise().query('SELECT * FROM users WHERE email = ?', [email]);
+
+    if (results.length === 0) {
+      return res.status(400).json({ message: 'Identifiants invalides' });
+    }
+
+    const user = results[0];
+
+    if (!user.password) {
+      return res.status(400).json({ message: 'Utilisateur trouvé sans mot de passe' });
+    }
+
+    // Vérifier si le mot de passe correspond
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Identifiants invalides' });
+    }
+
+    // Stocker l'ID de l'utilisateur dans la session
+    req.session.userId = user.id;
+
+    return res.json({ message: 'Connexion réussie' });
+
+  } catch (err) {
+    console.error('Erreur lors de la connexion:', err);
+    res.status(500).json({ message: 'Erreur interne lors de la connexion' });
+  }
+});
+
+// Déconnexion
+app.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ message: 'Erreur lors de la déconnexion' });
+    }
+    return res.json({ message: 'Déconnexion réussie' });
+  });
+});
+
+
 
 
 // 2. Configuration de body-parser et multer pour gérer les données de requête et les fichiers
@@ -417,6 +523,6 @@ app.post("/commandevente", (req, res) => {
 
 
 // Démarrage du serveur
-app.listen(3006, () => {
+app.listen(3007, () => {
   console.log("Serveur lancé sur le port 3005");
 });
