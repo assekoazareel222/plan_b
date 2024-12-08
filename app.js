@@ -9,6 +9,8 @@ const nodemailer = require("nodemailer");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 
@@ -409,9 +411,86 @@ app.post("/commandevente", (req, res) => {
   });
 });
 
+app.post("/signup", (req, res) => {
+  const { username, email, password } = req.body;
+
+  // Vérification de l'existence de l'utilisateur
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const checkUserQuery = "SELECT * FROM users WHERE email = ?";
+      connection.query(checkUserQuery, [email], (erreur, resultat) => {
+        if (erreur) {
+          return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        }
+        if (resultat.length > 0) {
+          return res.status(400).json({ erreur: "L'email est déjà utilisé" });
+        }
+
+        // Hash du mot de passe avant de le sauvegarder
+        bcrypt.hash(password, 10, (erreur, hash) => {
+          if (erreur) {
+            return res.status(500).json({ erreur: "Erreur lors du hashage du mot de passe" });
+          }
+
+          // Enregistrement de l'utilisateur
+          const query = "INSERT INTO users (username, email, password) VALUES (?, ?, ?)";
+          connection.query(query, [username, email, hash], (erreur, resultat) => {
+            if (erreur) {
+              return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+            }
+            return res.status(201).json({ message: "Compte créé avec succès" });
+          });
+        });
+      });
+    }
+  });
+});
 
 
 
+app.post("/login", (req, res) => {
+  const { email, password } = req.body;
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      const query = "SELECT * FROM users WHERE email = ?";
+      connection.query(query, [email], (erreur, resultat) => {
+        if (erreur) {
+          return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        }
+
+        if (resultat.length === 0) {
+          return res.status(404).json({ erreur: "Utilisateur non trouvé" });
+        }
+
+        // Vérification du mot de passe
+        bcrypt.compare(password, resultat[0].password, (erreur, isMatch) => {
+          if (erreur) {
+            return res.status(500).json({ erreur: "Erreur lors de la comparaison du mot de passe" });
+          }
+
+          if (!isMatch) {
+            return res.status(400).json({ erreur: "Mot de passe incorrect" });
+          }
+
+          // Création du token JWT
+          const token = jwt.sign(
+            { userId: resultat[0].id, username: resultat[0].username },
+            'votre-clé-secrète', // Utilisez une clé secrète forte
+            { expiresIn: '1h' }  // Le token expire après 1 heure
+          );
+
+          // Retourner le token au client
+          return res.status(200).json({ message: "Connexion réussie", token: token });
+        });
+      });
+    }
+  });
+});
 
 
 
