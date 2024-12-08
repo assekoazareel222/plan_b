@@ -133,6 +133,14 @@ app.post('/logout', (req, res) => {
   });
 });
 
+// Middleware d'authentification
+const isAuthenticated = (req, res, next) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: 'Non authentifié' });
+  }
+  next();
+};
+
 
 
 
@@ -146,7 +154,7 @@ app.use(myConnection(mysql, dbConfig, "pool"));
 
 
 // Routes pour obtenir les données des voitures et des ventes
-app.get("/", (req, res) => {
+app.get("/",isAuthenticated, (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
@@ -168,7 +176,7 @@ app.get("/", (req, res) => {
 
 
 
-app.get("/vente", (req, res) => {
+app.get("/vente", isAuthenticated,(req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
@@ -341,7 +349,7 @@ app.delete("/vente/:id", (req, res) => {
   });
 });
 
-app.get("/commande", (req, res) => {
+app.get("/commande",isAuthenticated, (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
@@ -386,7 +394,7 @@ app.post("/commande", (req, res) => {
 });
 
 
-app.get("/commandevente", (req, res) => {
+app.get("/commandevente",isAuthenticated, (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
