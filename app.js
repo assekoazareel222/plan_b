@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const myConnection = require("express-myconnection");
-const mysql = require("mysql2");
+const mysql = require('mysql2/promise');
 const voitureRoutes = require("./routes/voitureRoutes");
 const dbConfig = require("./config/db");
 const cors = require("cors");
@@ -17,11 +17,25 @@ dotenv.config();
 
 
 const app = express();
+// 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
+app.use(
+  cors({
+    origin: ["http://localhost:3000" , "http://localhost:5502" ,"https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com"], // Autoriser les deux origines
+    methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+    allowedHeaders:
+      "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
+  })
+);
 
 
 
 // Middleware pour analyser les requêtes JSON
 app.use(express.json());
+
+
+
+
+
 
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
@@ -36,17 +50,6 @@ const pool = mysql.createPool({
 
 
 
-// 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
-app.use(
-  cors({
-    origin: ["http://localhost:3000" , "http://localhost:5502" ,"https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com"], // Autoriser les deux origines
-    methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-    allowedHeaders:
-      "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
-  })
-);
-
-
 
 // Configuration de la session
 app.use(session({
@@ -55,45 +58,41 @@ app.use(session({
   saveUninitialized: true,
   cookie: { secure: false, httpOnly: true }  // Utilisez `secure: true` si vous utilisez HTTPS
 }));
-// Inscription
+
 
 app.post('/signup', async (req, res) => {
   const { email, username, password } = req.body;
 
   try {
-    pool.getConnection(async (err, connection) => {
-      if (err) {
-        return res.status(500).json({ message: 'Erreur de connexion à la base de données' });
-      }
+    // Utiliser directement le pool de connexions avec async/await
+    const [results] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
 
-      // Vérifier si l'utilisateur existe déjà
-      const results = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
+    // Vérifier si l'utilisateur existe déjà
+    if (results.length > 0) {
+      return res.status(400).json({ message: 'Email déjà utilisé' });
+    }
 
-      if (results.length > 0) {
-        return res.status(400).json({ message: 'Email déjà utilisé' });
-      }
+    // Hasher le mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Hasher le mot de passe
-      const hashedPassword = await bcrypt.hash(password, 10);
+    // Ajouter l'utilisateur à la base de données
+    await pool.query('INSERT INTO users (email, username, password) VALUES (?, ?, ?)', [email, username, hashedPassword]);
 
-      // Ajouter l'utilisateur à la base de données
-      await connection.query('INSERT INTO users (email, username, password) VALUES (?, ?, ?)', [email, username, hashedPassword]);
+    return res.status(201).json({ message: 'Utilisateur créé avec succès' });
 
-      connection.release();  // Always release the connection back to the pool
-
-      return res.status(201).json({ message: 'Utilisateur créé avec succès' });
-    });
   } catch (err) {
     console.error('Erreur lors de l\'inscription:', err);
     res.status(500).json({ message: 'Erreur interne lors de l\'inscription' });
   }
 });
+
+
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
     // Utiliser pool.promise() pour gérer les promesses
-    const [results] = await pool.promise().query('SELECT * FROM users WHERE email = ?', [email]);
+    const [results] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
 
     if (results.length === 0) {
       return res.status(400).json({ message: 'Identifiants invalides' });
@@ -154,7 +153,7 @@ app.use(myConnection(mysql, dbConfig, "pool"));
 
 
 // Routes pour obtenir les données des voitures et des ventes
-app.get("/",isAuthenticated, (req, res) => {
+app.get("/", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
@@ -176,7 +175,7 @@ app.get("/",isAuthenticated, (req, res) => {
 
 
 
-app.get("/vente", isAuthenticated,(req, res) => {
+app.get("/vente",(req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
