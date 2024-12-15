@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const myConnection = require("express-myconnection");
-const mysql = require('mysql2/promise');
+const mysql = require("mysql");
 const voitureRoutes = require("./routes/voitureRoutes");
 const dbConfig = require("./config/db");
 const cors = require("cors");
@@ -12,13 +12,15 @@ const fs = require("fs");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const session = require('express-session');
-
-const dotenv = require('dotenv');
-dotenv.config();
-
-
 const app = express();
+
+
+app.use('/images', express.static(path.join(__dirname, 'public/images')));
+
+
+
+
+
 // 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
 app.use(
   cors({
@@ -28,120 +30,6 @@ app.use(
       "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
   })
 );
-
-
-
-// Middleware pour analyser les requêtes JSON
-app.use(express.json());
-
-
-
-
-
-
-app.use('/images', express.static(path.join(__dirname, 'public/images')));
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE, // Si pas de port spécifié, utiliser le port par défaut
-});
-
-
-
-
-
-// Configuration de la session
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-session-secret',  // Clé secrète pour signer les cookies de session
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false, httpOnly: true }  // Utilisez `secure: true` si vous utilisez HTTPS
-}));
-
-
-app.post('/signup', async (req, res) => {
-  const { email, username, password } = req.body;
-
-  try {
-    // Utiliser directement le pool de connexions avec async/await
-    const [results] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-
-    // Vérifier si l'utilisateur existe déjà
-    if (results.length > 0) {
-      return res.status(400).json({ message: 'Email déjà utilisé' });
-    }
-
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Ajouter l'utilisateur à la base de données
-    await pool.query('INSERT INTO users (email, username, password) VALUES (?, ?, ?)', [email, username, hashedPassword]);
-
-    return res.status(201).json({ message: 'Utilisateur créé avec succès' });
-
-  } catch (err) {
-    console.error('Erreur lors de l\'inscription:', err);
-    res.status(500).json({ message: 'Erreur interne lors de l\'inscription' });
-  }
-});
-
-
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // Utiliser pool.promise() pour gérer les promesses
-    const [results] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-
-    if (results.length === 0) {
-      return res.status(400).json({ message: 'Identifiants invalides' });
-    }
-
-    const user = results[0];
-
-    if (!user.password) {
-      return res.status(400).json({ message: 'Utilisateur trouvé sans mot de passe' });
-    }
-
-    // Vérifier si le mot de passe correspond
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Identifiants invalides' });
-    }
-
-    // Stocker l'ID de l'utilisateur dans la session
-    req.session.userId = user.id;
-
-    return res.json({ message: 'Connexion réussie' });
-
-  } catch (err) {
-    console.error('Erreur lors de la connexion:', err);
-    res.status(500).json({ message: 'Erreur interne lors de la connexion' });
-  }
-});
-
-// Déconnexion
-app.post('/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ message: 'Erreur lors de la déconnexion' });
-    }
-    return res.json({ message: 'Déconnexion réussie' });
-  });
-});
-
-// Middleware d'authentification
-const isAuthenticated = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ message: 'Non authentifié' });
-  }
-  next();
-};
-
-
 
 
 // 2. Configuration de body-parser et multer pour gérer les données de requête et les fichiers
@@ -172,23 +60,6 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/users", (req, res) => {
-  req.getConnection((erreur, connection) => {
-    if (erreur) {
-      res
-        .status(500)
-        .json({ erreur: "Erreur de connexion à la base de données" });
-    } else {
-      connection.query("SELECT * FROM users", [], (erreur, resultat) => {
-        if (erreur) {
-          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
-        } else {
-          res.status(200).json(resultat);
-        }
-      });
-    }
-  });
-});
 
 
 
@@ -211,7 +82,7 @@ app.get("/users", (req, res) => {
 });
 
 
-app.get("/vente",(req, res) => {
+app.get("/vente", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
@@ -384,7 +255,7 @@ app.delete("/vente/:id", (req, res) => {
   });
 });
 
-app.get("/commande",isAuthenticated, (req, res) => {
+app.get("/commande", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res
