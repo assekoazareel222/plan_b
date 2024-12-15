@@ -13,7 +13,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const session = require('express-session');
-const bcrypt = require('bcryptjs'); 
+
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -172,6 +172,23 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/users", (req, res) => {
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res
+        .status(500)
+        .json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      connection.query("SELECT * FROM users", [], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else {
+          res.status(200).json(resultat);
+        }
+      });
+    }
+  });
+});
 
 
 
@@ -608,6 +625,6 @@ app.post("/login", (req, res) => {
 
 
 // Démarrage du serveur
-app.listen(3007, () => {
+app.listen(3005, () => {
   console.log("Serveur lancé sur le port 3005");
 });
