@@ -81,6 +81,62 @@ app.get("/users", (req, res) => {
   });
 });
 
+app.put("/users/:id", (req, res) => {
+  const { id } = req.params;
+  const { username, password, email, photo } = req.body;
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      return res
+        .status(500)
+        .json({ erreur: "Erreur de connexion à la base de données" });
+    }
+
+    const query =
+      "UPDATE users SET username = ?, password = ?, email = ?, photo = ? WHERE id = ?";
+    const values = [username, password, email, photo, id];
+
+    connection.query(query, values, (erreur, resultat) => {
+      if (erreur) {
+        return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+      }
+
+      if (resultat.affectedRows === 0) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      res.status(200).json({ message: "Utilisateur mis à jour avec succès" });
+    });
+  });
+});
+
+app.delete("/users/:id", (req, res) => {
+  const { id } = req.params;
+
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      return res
+        .status(500)
+        .json({ erreur: "Erreur de connexion à la base de données" });
+    }
+
+    const query = "DELETE FROM users WHERE id = ?";
+    const values = [id];
+
+    connection.query(query, values, (erreur, resultat) => {
+      if (erreur) {
+        return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+      }
+
+      if (resultat.affectedRows === 0) {
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+
+      res.status(200).json({ message: "Utilisateur supprimé avec succès" });
+    });
+  });
+});
+
 
 app.get("/vente", (req, res) => {
   req.getConnection((erreur, connection) => {
@@ -430,7 +486,7 @@ app.post("/commandevente", (req, res) => {
 });
 
 app.post("/signup", (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password , photo } = req.body;
 
   // Vérification de l'existence de l'utilisateur
   req.getConnection((erreur, connection) => {
@@ -453,8 +509,8 @@ app.post("/signup", (req, res) => {
           }
 
           // Enregistrement de l'utilisateur
-          const query = "INSERT INTO users (username, email, password) VALUES (?, ?, ?)";
-          connection.query(query, [username, email, hash], (erreur, resultat) => {
+          const query = "INSERT INTO users (username, email, password,photo) VALUES (?,?,?,?)";
+          connection.query(query, [username, email,password,photo, hash], (erreur, resultat) => {
             if (erreur) {
               return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
             }
