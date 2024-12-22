@@ -11,9 +11,23 @@ const path = require("path");
 const fs = require("fs");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const http = require("http");
+const socketIo = require("socket.io");
 
 const app = express();
 
+
+const server = http.createServer(app); // Créer un serveur HTTP pour intégrer avec Socket.IO
+const io = socketIo(server); // Créer une instance de Socket.IO
+
+io.on("connection", (socket) => {
+  console.log("Un client est connecté");
+  
+  // Vous pouvez ajouter des événements spécifiques ici si nécessaire
+  socket.on("disconnect", () => {
+    console.log("Un client est déconnecté");
+  });
+});
 
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
@@ -348,6 +362,7 @@ app.post("/commande", (req, res) => {
           console.error("Erreur SQL:", erreur);
           res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
+          io.emit("nouvelle_voiture", { message: "Une nouvelle voiture a été ajoutée", id: resultat.insertId });
           res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
         }
       });
@@ -448,6 +463,9 @@ app.post("/gestion", stock.single("image"), (req, res) => {
           console.error("Erreur SQL:", erreur); // Afficher l'erreur SQL
           return res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
+
+          io.emit("nouvelle_voiture", { message: "Une nouvelle voiture a été ajoutée en gestion", id: resultat.insertId });
+
           console.log("Réponse de l'API:", { message: "Voiture ajoutée avec succès", id: resultat.insertId });
           return res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
         }
@@ -478,6 +496,7 @@ app.post("/commandevente", (req, res) => {
           console.error("Erreur SQL:", erreur);
           res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
+          io.emit("nouvelle_voiture", { message: "Une nouvelle commande de vente", id: resultat.insertId });
           res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
         }
       });
