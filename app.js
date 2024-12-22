@@ -530,39 +530,48 @@ app.post("/login", (req, res) => {
   req.getConnection((erreur, connection) => {
     if (erreur) {
       return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
-    } else {
-      const query = "SELECT * FROM users WHERE email = ?";
-      connection.query(query, [email], (erreur, resultat) => {
+    }
+
+    const query = "SELECT * FROM users WHERE email = ?";
+    connection.query(query, [email], (erreur, resultat) => {
+      if (erreur) {
+        return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+      }
+
+      if (resultat.length === 0) {
+        return res.status(404).json({ erreur: "Utilisateur non trouvé" });
+      }
+
+      // Vérification du mot de passe
+      bcrypt.compare(password, resultat[0].password, (erreur, isMatch) => {
         if (erreur) {
-          return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+          return res.status(500).json({ erreur: "Erreur lors de la comparaison du mot de passe" });
         }
 
-        if (resultat.length === 0) {
-          return res.status(404).json({ erreur: "Utilisateur non trouvé" });
+        if (!isMatch) {
+          return res.status(400).json({ erreur: "Mot de passe incorrect" });
         }
 
-        // Vérification du mot de passe
-        bcrypt.compare(password, resultat[0].password, (erreur, isMatch) => {
-          if (erreur) {
-            return res.status(500).json({ erreur: "Erreur lors de la comparaison du mot de passe" });
+        // Création du token JWT
+        const token = jwt.sign(
+          { userId: resultat[0].id, username: resultat[0].username },
+          'votre-clé-secrète', // Utilisez une clé secrète forte
+          { expiresIn: '1h' } // Le token expire après 1 heure
+        );
+
+        // Inclure la photo dans la réponse
+        return res.status(200).json({
+          message: "Connexion réussie",
+          token: token,
+          user: {
+            id: resultat[0].id,
+            username: resultat[0].username,
+            email: resultat[0].email,
+            photo: resultat[0].photo // Inclure la photo ici
           }
-
-          if (!isMatch) {
-            return res.status(400).json({ erreur: "Mot de passe incorrect" });
-          }
-
-          // Création du token JWT
-          const token = jwt.sign(
-            { userId: resultat[0].id, username: resultat[0].username },
-            'votre-clé-secrète', // Utilisez une clé secrète forte
-            { expiresIn: '1h' }  // Le token expire après 1 heure
-          );
-
-          // Retourner le token au client
-          return res.status(200).json({ message: "Connexion réussie", token: token });
         });
       });
-    }
+    });
   });
 });
 
