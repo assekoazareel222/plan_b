@@ -371,7 +371,7 @@ app.post("/commande", (req, res) => {
           res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
           // Mise à jour des notifications
-          connection.query("UPDATE notifications SET commande = commande + 1", (erreur) => {
+          connection.query("UPDATE notificatons SET commande = commande + 1", (erreur) => {
             if (erreur) {
               console.error("Erreur lors de l'update des notifications", erreur);
             }
@@ -488,7 +488,7 @@ app.post("/gestion", stock.single("image"), (req, res) => {
           const updateNotificationQuery = "UPDATE notifications SET gestion = gestion + 1";
           connection.query(updateNotificationQuery, (erreur, resultatNotification) => {
             if (erreur) {
-              console.error("Erreur SQL pour mise à jour du compteur de notifications", erreur);
+              console.error("Erreur SQL pour mise à jour du compteur de notificatons", erreur);
               return res.status(500).json({ erreur: "Erreur lors de l'incrémentation du compteur de notification" });
             } else {
               // Émettre l'événement de notification via Socket.io
@@ -526,7 +526,7 @@ app.post("/commandevente", (req, res) => {
           res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
           // Incrémentation du compteur de notification pour la commande de vente
-          const updateNotificationQuery = "UPDATE notifications SET vente = vente + 1";
+          const updateNotificationQuery = "UPDATE notificatons SET vente = vente + 1";
           connection.query(updateNotificationQuery, (erreur, resultatNotification) => {
             if (erreur) {
               console.error("Erreur SQL pour mise à jour du compteur de notifications", erreur);
@@ -656,20 +656,24 @@ app.post("/reset-notifications", (req, res) => {
     if (erreur) {
       return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
     } else {
-      // Mise à zéro des notifications
-      const query = "UPDATE notificatons SET gestion = 0, commande = 0, vente = 0";
-      
-      connection.query(query, (erreur, resultat) => {
-        if (erreur) {
-          console.error("Erreur lors de la réinitialisation des notifications", erreur);
-          return res.status(500).json({ erreur: "Erreur lors de la réinitialisation des notifications" });
-        } else {
-          res.status(200).json({ message: "Notifications réinitialisées avec succès" });
-        }
-      });
+      // Délai de 10 secondes avant de réinitialiser les notifications
+      setTimeout(() => {
+        // Mise à zéro des notifications
+        const query = "UPDATE notificatons SET gestion = 0, commande = 0, vente = 0";
+
+        connection.query(query, (erreur, resultat) => {
+          if (erreur) {
+            console.error("Erreur lors de la réinitialisation des notifications", erreur);
+            return res.status(500).json({ erreur: "Erreur lors de la réinitialisation des notifications" });
+          } else {
+            res.status(200).json({ message: "Notifications réinitialisées avec succès" });
+          }
+        });
+      }, 10000); // Attente de 10 secondes (10000 ms)
     }
   });
 });
+
 
 
 // Démarrage du serveur
