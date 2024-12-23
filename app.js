@@ -18,32 +18,40 @@ const app = express();
 
 
 const server = http.createServer(app); // Créer un serveur HTTP pour intégrer avec Socket.IO
-const io = socketIo(server); // Créer une instance de Socket.IO
 
-io.on("connection", (socket) => {
-  console.log("Un client est connecté");
-  
-  // Vous pouvez ajouter des événements spécifiques ici si nécessaire
-  socket.on("disconnect", () => {
-    console.log("Un client est déconnecté");
-  });
+// Configurer CORS pour autoriser les connexions depuis d'autres origines
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://localhost:5502", "https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com"],
+    methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+    allowedHeaders: "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
+  })
+);
+
+// Créer une instance de Socket.IO
+const io = socketIo(server, {
+  cors: {
+    origin: ["http://localhost:3000", 'http://localhost:5502' , "https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Origin", "X-Requested-With", "Content", "Accept", "Content-Type", "Authorization"]
+  }
 });
 
+// Écouter les événements de connexion
+io.on('connection', (socket) => {
+  console.log('Client connected');
+  
+  // Vous pouvez ajouter des événements ici pour traiter les messages du client
+  socket.on('message', (data) => {
+    console.log(data);
+  });
+});
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
 
 
 
 
-// 1. Configuration de CORS - à mettre en premier pour intercepter toutes les requêtes
-app.use(
-  cors({
-    origin: ["http://localhost:3000" , "http://localhost:5502" ,"https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com"], // Autoriser les deux origines
-    methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-    allowedHeaders:
-      "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization",
-  })
-);
 
 
 // 2. Configuration de body-parser et multer pour gérer les données de requête et les fichiers
@@ -346,7 +354,7 @@ app.get("/commande", (req, res) => {
 //routes post voiture
 
 app.post("/commande", (req, res) => {
-  const { nomVoiture , nomClient, numeroTelephone , numeroWhatsapp ,  	adresseMail , adresse  } = req.body;
+  const { nomVoiture , nomClient, numeroTelephone , numeroWhatsapp , adresseMail , adresse  } = req.body;
 
   req.getConnection((erreur, connection) => {
     if (erreur) {
@@ -362,13 +370,26 @@ app.post("/commande", (req, res) => {
           console.error("Erreur SQL:", erreur);
           res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
-          io.emit("nouvelle_voiture", { message: "Une nouvelle voiture a été ajoutée", id: resultat.insertId });
-          res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+          // Mise à jour des notifications
+          connection.query("UPDATE notifications SET commande = commande + 1", (erreur) => {
+            if (erreur) {
+              console.error("Erreur lors de l'update des notifications", erreur);
+            }
+          });
+
+          // Emission d'un événement de notification
+          io.emit('pushNotification', { message: "Nouvelle commande ajoutée" });
+
+          res.status(200).send({
+            message: 'Commande ajoutée avec succès',
+            id: resultat.insertId
+          });
         }
       });
     }
   });
 });
+
 
 
 app.get("/commandevente", (req, res) => {
@@ -463,11 +484,18 @@ app.post("/gestion", stock.single("image"), (req, res) => {
           console.error("Erreur SQL:", erreur); // Afficher l'erreur SQL
           return res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
-
-          io.emit("nouvelle_voiture", { message: "Une nouvelle voiture a été ajoutée en gestion", id: resultat.insertId });
-
-          console.log("Réponse de l'API:", { message: "Voiture ajoutée avec succès", id: resultat.insertId });
-          return res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+          // Incrémenter le compteur de notification de gestion
+          const updateNotificationQuery = "UPDATE notifications SET gestion = gestion + 1";
+          connection.query(updateNotificationQuery, (erreur, resultatNotification) => {
+            if (erreur) {
+              console.error("Erreur SQL pour mise à jour du compteur de notifications", erreur);
+              return res.status(500).json({ erreur: "Erreur lors de l'incrémentation du compteur de notification" });
+            } else {
+              // Émettre l'événement de notification via Socket.io
+              io.emit("nouvelle_voiture", { message: "Une nouvelle voiture a été ajoutée en gestion", id: resultat.insertId });
+              return res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+            }
+          });
         }
       });
     }
@@ -477,10 +505,11 @@ app.post("/gestion", stock.single("image"), (req, res) => {
 
 
 
+
 //routes post voiture
 
 app.post("/commandevente", (req, res) => {
-  const { nomVoiture , nomClient, numeroTelephone , numeroWhatsapp ,  	adresseMail , adresse  } = req.body;
+  const { nomVoiture , nomClient, numeroTelephone , numeroWhatsapp , adresseMail , adresse  } = req.body;
 
   req.getConnection((erreur, connection) => {
     if (erreur) {
@@ -496,13 +525,24 @@ app.post("/commandevente", (req, res) => {
           console.error("Erreur SQL:", erreur);
           res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
-          io.emit("nouvelle_voiture", { message: "Une nouvelle commande de vente", id: resultat.insertId });
-          res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+          // Incrémentation du compteur de notification pour la commande de vente
+          const updateNotificationQuery = "UPDATE notifications SET vente = vente + 1";
+          connection.query(updateNotificationQuery, (erreur, resultatNotification) => {
+            if (erreur) {
+              console.error("Erreur SQL pour mise à jour du compteur de notifications", erreur);
+              return res.status(500).json({ erreur: "Erreur lors de l'incrémentation du compteur de notification" });
+            } else {
+              // Émettre un événement de notification via Socket.io
+              io.emit("nouvelle_voiture", { message: "Une nouvelle commande de vente", id: resultat.insertId });
+              res.status(201).json({ message: "Voiture ajoutée avec succès", id: resultat.insertId });
+            }
+          });
         }
       });
     }
   });
 });
+
 
 app.post("/signup", (req, res) => {
   const { username, email, password , photo } = req.body;
@@ -594,10 +634,45 @@ app.post("/login", (req, res) => {
   });
 });
 
+app.get("/notifications", (req, res) => {
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      connection.query("SELECT * FROM notificatons", (erreur, resultat) => {
+        if (erreur) {
+          return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else {
+          res.status(200).json(resultat[0]); // Renvoi des notifications
+        }
+      });
+    }
+  });
+});
 
+// Route pour réinitialiser les notifications
+app.post("/reset-notifications", (req, res) => {
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      // Mise à zéro des notifications
+      const query = "UPDATE notificatons SET gestion = 0, commande = 0, vente = 0";
+      
+      connection.query(query, (erreur, resultat) => {
+        if (erreur) {
+          console.error("Erreur lors de la réinitialisation des notifications", erreur);
+          return res.status(500).json({ erreur: "Erreur lors de la réinitialisation des notifications" });
+        } else {
+          res.status(200).json({ message: "Notifications réinitialisées avec succès" });
+        }
+      });
+    }
+  });
+});
 
 
 // Démarrage du serveur
-app.listen(3005, () => {
+app.listen(3008, () => {
   console.log("Serveur lancé sur le port 3005");
 });
