@@ -485,7 +485,7 @@ app.post("/gestion", stock.single("image"), (req, res) => {
           return res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
           // Incrémenter le compteur de notification de gestion
-          const updateNotificationQuery = "UPDATE notifications SET gestion = gestion + 1";
+          const updateNotificationQuery = "UPDATE notificatons SET gestion = gestion + 1";
           connection.query(updateNotificationQuery, (erreur, resultatNotification) => {
             if (erreur) {
               console.error("Erreur SQL pour mise à jour du compteur de notificatons", erreur);
