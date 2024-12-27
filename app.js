@@ -466,7 +466,7 @@ app.post("/gestion", stock.single("image"), (req, res) => {
   }
 
   const { nom, marque, model, annes, kilometrage, message } = req.body;
-  const image = req.file ? `/images/${req.file.filename}` : null;  // URL de l'image
+  const image = req.file ? `public/images/${req.file.filename}` : null;  // URL de l'image
 
   req.getConnection((erreur, connection) => {
     if (erreur) {
