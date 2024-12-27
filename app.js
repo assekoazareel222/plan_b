@@ -22,7 +22,7 @@ const server = http.createServer(app); // Créer un serveur HTTP pour intégrer 
 // Configurer CORS pour autoriser les connexions depuis d'autres origines
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5502", "https://adminbiabiamotor.onrender.com","https://www.biabia-motor.com","https://biabia-motor.onrender.com"],
+    origin: ["http://localhost:3000", "http://localhost:5502", "https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com"],
     methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     allowedHeaders: "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
   })
@@ -427,7 +427,7 @@ app.get("/gestion", (req, res) => {
     }
   });
 });
-// Configuration de multer pour le stockage des fichiers
+// Configuration de Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'public/images'); // Le dossier où les fichiers seront stockés
@@ -441,6 +441,7 @@ const stock = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limite de taille à 5MB
   fileFilter: (req, file, cb) => {
+    // Vérifier l'extension du fichier
     const allowedTypes = /jpeg|jpg|png/;
     if (!allowedTypes.test(file.mimetype)) {
       return cb(new Error('Le fichier doit être une image JPEG, PNG ou JPG'));
@@ -449,25 +450,26 @@ const stock = multer({
   }
 });
 
-// Utilisation des fichiers statiques dans le dossier 'public'
-app.use(express.static('public'));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Route POST avec Multer pour traiter le fichier et les autres champs
 app.post("/gestion", stock.single("image"), (req, res) => {
+  // Afficher les données envoyées en console
   console.log("Données reçues:");
   console.log("Fichier:", req.file);  // Affiche les détails du fichier téléchargé
   console.log("Autres champs:", req.body);  // Affiche les autres données du formulaire
 
+  // Vérifier si un fichier est téléchargé
   if (!req.file) {
     return res.status(400).json({ error: "Aucun fichier téléchargé" });
   }
 
+  // Extraire les autres données du formulaire
   const { nom, marque, model, annes, kilometrage, message } = req.body;
-  const image = req.file ? `public/images/${req.file.filename}` : null;  // URL de l'image
+  const image = req.file ? `/images/${req.file.filename}` : null;  // URL de l'image
 
+  // Traitement de la requête et insertion dans la base de données
   req.getConnection((erreur, connection) => {
     if (erreur) {
       return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
@@ -479,13 +481,14 @@ app.post("/gestion", stock.single("image"), (req, res) => {
 
       connection.query(query, [nom, marque, model, annes, kilometrage, image, message], (erreur, resultat) => {
         if (erreur) {
-          console.error("Erreur SQL:", erreur);
+          console.error("Erreur SQL:", erreur); // Afficher l'erreur SQL
           return res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
+          // Incrémenter le compteur de notification de gestion
           const updateNotificationQuery = "UPDATE notificatons SET gestion = gestion + 1";
           connection.query(updateNotificationQuery, (erreur, resultatNotification) => {
             if (erreur) {
-              console.error("Erreur SQL pour mise à jour du compteur de notifications", erreur);
+              console.error("Erreur SQL pour mise à jour du compteur de notificatons", erreur);
               return res.status(500).json({ erreur: "Erreur lors de l'incrémentation du compteur de notification" });
             } else {
               // Émettre l'événement de notification via Socket.io
