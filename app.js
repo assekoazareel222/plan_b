@@ -427,7 +427,7 @@ app.get("/gestion", (req, res) => {
     }
   });
 });
-// Configuration de Multer
+// Configuration de multer pour le stockage des fichiers
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'public/images'); // Le dossier où les fichiers seront stockés
@@ -441,7 +441,6 @@ const stock = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limite de taille à 5MB
   fileFilter: (req, file, cb) => {
-    // Vérifier l'extension du fichier
     const allowedTypes = /jpeg|jpg|png/;
     if (!allowedTypes.test(file.mimetype)) {
       return cb(new Error('Le fichier doit être une image JPEG, PNG ou JPG'));
@@ -450,26 +449,25 @@ const stock = multer({
   }
 });
 
+// Utilisation des fichiers statiques dans le dossier 'public'
+app.use(express.static('public'));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Route POST avec Multer pour traiter le fichier et les autres champs
 app.post("/gestion", stock.single("image"), (req, res) => {
-  // Afficher les données envoyées en console
   console.log("Données reçues:");
   console.log("Fichier:", req.file);  // Affiche les détails du fichier téléchargé
   console.log("Autres champs:", req.body);  // Affiche les autres données du formulaire
 
-  // Vérifier si un fichier est téléchargé
   if (!req.file) {
     return res.status(400).json({ error: "Aucun fichier téléchargé" });
   }
 
-  // Extraire les autres données du formulaire
   const { nom, marque, model, annes, kilometrage, message } = req.body;
   const image = req.file ? `/images/${req.file.filename}` : null;  // URL de l'image
 
-  // Traitement de la requête et insertion dans la base de données
   req.getConnection((erreur, connection) => {
     if (erreur) {
       return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
@@ -481,14 +479,13 @@ app.post("/gestion", stock.single("image"), (req, res) => {
 
       connection.query(query, [nom, marque, model, annes, kilometrage, image, message], (erreur, resultat) => {
         if (erreur) {
-          console.error("Erreur SQL:", erreur); // Afficher l'erreur SQL
+          console.error("Erreur SQL:", erreur);
           return res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
         } else {
-          // Incrémenter le compteur de notification de gestion
           const updateNotificationQuery = "UPDATE notificatons SET gestion = gestion + 1";
           connection.query(updateNotificationQuery, (erreur, resultatNotification) => {
             if (erreur) {
-              console.error("Erreur SQL pour mise à jour du compteur de notificatons", erreur);
+              console.error("Erreur SQL pour mise à jour du compteur de notifications", erreur);
               return res.status(500).json({ erreur: "Erreur lors de l'incrémentation du compteur de notification" });
             } else {
               // Émettre l'événement de notification via Socket.io
@@ -545,39 +542,57 @@ app.post("/commandevente", (req, res) => {
 
 
 app.post("/signup", (req, res) => {
-  const { username, email, password , photo } = req.body;
+  const { username, email, password, photo } = req.body;
 
-  // Vérification de l'existence de l'utilisateur
+  // Vérification de la présence des champs requis
+  if (!username || !email || !password) {
+    return res.status(400).json({ erreur: "Tous les champs (username, email, password) sont requis" });
+  }
+
+  console.log("Mot de passe reçu :", password); // Log du mot de passe pour vérification
+
+  // Vérification de l'existence de l'utilisateur dans la base de données
   req.getConnection((erreur, connection) => {
     if (erreur) {
       return res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
-    } else {
-      const checkUserQuery = "SELECT * FROM users WHERE email = ?";
-      connection.query(checkUserQuery, [email], (erreur, resultat) => {
+    }
+
+    const checkUserQuery = "SELECT * FROM users WHERE email = ?";
+    connection.query(checkUserQuery, [email], (erreur, resultat) => {
+      if (erreur) {
+        return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+      }
+
+      // Si l'email est déjà utilisé, renvoyer une erreur
+      if (resultat.length > 0) {
+        return res.status(400).json({ erreur: "L'email est déjà utilisé" });
+      }
+
+      // Validation du mot de passe
+      if (typeof password !== 'string' || password.trim() === '') {
+        return res.status(400).json({ erreur: "Le mot de passe est invalide" });
+      }
+
+      // Hash du mot de passe avant de le sauvegarder
+      bcrypt.hash(password, 10, (erreur, hash) => {
         if (erreur) {
-          return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
-        }
-        if (resultat.length > 0) {
-          return res.status(400).json({ erreur: "L'email est déjà utilisé" });
+          console.error("Erreur lors du hashage du mot de passe :", erreur); // Log de l'erreur
+          return res.status(500).json({ erreur: "Erreur lors du hashage du mot de passe" });
         }
 
-        // Hash du mot de passe avant de le sauvegarder
-        bcrypt.hash(password, 10, (erreur, hash) => {
+        // Requête SQL pour insérer l'utilisateur dans la base de données
+        const query = "INSERT INTO users (username, email, password, photo) VALUES (?,?,?,?)";
+        connection.query(query, [username, email, hash, photo], (erreur, resultat) => {
           if (erreur) {
-            return res.status(500).json({ erreur: "Erreur lors du hashage du mot de passe" });
+            console.error("Erreur lors de l'enregistrement de l'utilisateur :", erreur); // Log de l'erreur
+            return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
           }
 
-          // Enregistrement de l'utilisateur
-          const query = "INSERT INTO users (username, email, password,photo) VALUES (?,?,?,?)";
-          connection.query(query, [username, email,password,photo, hash], (erreur, resultat) => {
-            if (erreur) {
-              return res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
-            }
-            return res.status(201).json({ message: "Compte créé avec succès" });
-          });
+          // Réponse de succès
+          return res.status(201).json({ message: "Compte créé avec succès" });
         });
       });
-    }
+    });
   });
 });
 
