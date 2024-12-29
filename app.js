@@ -283,26 +283,32 @@ app.post("/vente", (req, res) => {
 
 
 
-//route put oiture
 app.put("/vente/:id", (req, res) => {
   const { marque, boiteDeVitesse, kilometrage, consommation, model, image } = req.body;
   const { id } = req.params;  // Id de la voiture à mettre à jour
 
   req.getConnection((erreur, connection) => {
     if (erreur) {
+      // Enregistrez l'erreur de connexion dans la console pour le débogage
+      console.error("Erreur de connexion à la base de données:", erreur);
       res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
     } else {
       const query = `
-        UPDATE voiture 
+        UPDATE vente 
         SET marque = ?, boiteDeVitesse = ?, kilometrage = ?, consommation = ?, model = ?, image = ? 
         WHERE id = ?
       `;
       connection.query(query, [marque, boiteDeVitesse, kilometrage, consommation, model, image, id], (erreur, resultat) => {
         if (erreur) {
+          // Affiche l'erreur détaillée dans la console pour le débogage
+          console.error("Erreur lors de la requête SQL:", erreur);
           res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
         } else if (resultat.affectedRows === 0) {
+          // Si aucune ligne n'a été affectée, cela signifie que l'ID n'a pas été trouvé
+          console.log(`Aucune voiture trouvée avec l'ID: ${id}`);
           res.status(404).json({ message: "Voiture non trouvée" });
         } else {
+          console.log(`Voiture mise à jour avec succès, ID: ${id}`);
           res.status(200).json({ message: "Voiture mise à jour avec succès" });
         }
       });
@@ -319,7 +325,7 @@ app.delete("/vente/:id", (req, res) => {
     if (erreur) {
       res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
     } else {
-      const query = "DELETE FROM voiture WHERE id = ?";
+      const query = "DELETE FROM vente WHERE id = ?";
       connection.query(query, [id], (erreur, resultat) => {
         if (erreur) {
           res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
