@@ -265,7 +265,7 @@ app.post("/vente", (req, res) => {
       res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
     } else {
       const query = `
-        INSERT INTO voiture (marque, boiteDeVitesse, kilometrage, consommation, model, image) 
+        INSERT INTO vente (marque, boiteDeVitesse, kilometrage, consommation, model, image) 
         VALUES (?, ?, ?, ?, ?, ?)
       `;
 
