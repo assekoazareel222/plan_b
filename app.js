@@ -57,7 +57,8 @@ app.use('/images', express.static(path.join(__dirname, 'public/images')));
 // 2. Configuration de body-parser et multer pour gérer les données de requête et les fichiers
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-const upload = multer({ dest: "uploads/" });
+app.use('/images', express.static('public/images'));
+
 
 // Middleware de connexion à la base de données
 app.use(myConnection(mysql, dbConfig, "pool"));
@@ -416,27 +417,16 @@ app.get("/commandevente", (req, res) => {
   });
 });
 
-app.get("/gestion", (req, res) => {
-  req.getConnection((erreur, connection) => {
-    if (erreur) {
-      res
-        .status(500)
-        .json({ erreur: "Erreur de connexion à la base de données" });
-    } else {
-      connection.query("SELECT * FROM gestion", [], (erreur, resultat) => {
-        if (erreur) {
-          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
-        } else {
-          res.status(200).json(resultat);
-        }
-      });
-    }
-  });
-});
+// Vérification et création du dossier "public/images" si nécessaire
+const uploadDir = path.join(__dirname, 'public', 'images');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // Configuration de Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'public/images'); // Le dossier où les fichiers seront stockés
+    cb(null, uploadDir); // Le dossier où les fichiers seront stockés
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + '-' + file.originalname); // Nom du fichier avec un timestamp pour l'unicité
@@ -456,20 +446,44 @@ const stock = multer({
   }
 });
 
+// Middleware pour les données JSON et les formulaires URL-encodés
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Route POST avec Multer pour traiter le fichier et les autres champs
-app.post("/gestion", stock.single("image"), (req, res) => {
-  // Afficher les données envoyées en console
-  console.log("Données reçues:");
-  console.log("Fichier:", req.file);  // Affiche les détails du fichier téléchargé
-  console.log("Autres champs:", req.body);  // Affiche les autres données du formulaire
+// Route GET pour récupérer les données de gestion
+app.get("/gestion", (req, res) => {
+  req.getConnection((erreur, connection) => {
+    if (erreur) {
+      res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
+    } else {
+      connection.query("SELECT * FROM gestion", [], (erreur, resultat) => {
+        if (erreur) {
+          res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
+        } else {
+          res.status(200).json(resultat);
+        }
+      });
+    }
+  });
+});
 
-  // Vérifier si un fichier est téléchargé
+// Route POST pour ajouter une voiture avec l'image
+app.post("/gestion", stock.single("image"), (req, res) => {
+  // Vérification des erreurs Multer
+  if (req.fileValidationError) {
+    return res.status(400).json({ error: req.fileValidationError });
+  }
   if (!req.file) {
     return res.status(400).json({ error: "Aucun fichier téléchargé" });
   }
+  if (req.file.size > 5 * 1024 * 1024) {
+    return res.status(400).json({ error: "Le fichier est trop volumineux (max. 5MB)" });
+  }
+
+  // Afficher les données reçues en console
+  console.log("Données reçues:");
+  console.log("Fichier:", req.file);  // Affiche les détails du fichier téléchargé
+  console.log("Autres champs:", req.body);  // Affiche les autres données du formulaire
 
   // Extraire les autres données du formulaire
   const { nom, marque, model, annes, kilometrage, message } = req.body;
@@ -507,8 +521,6 @@ app.post("/gestion", stock.single("image"), (req, res) => {
     }
   });
 });
-
-
 
 
 
