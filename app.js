@@ -22,7 +22,11 @@ const server = http.createServer(app); // Créer un serveur HTTP pour intégrer 
 // Configurer CORS pour autoriser les connexions depuis d'autres origines
 app.use(
   cors({
+<<<<<<< HEAD
     origin: ["http://localhost:3000", "http://localhost:5502", "https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com" , "https://biabia-motor.com"],
+=======
+    origin: ["http://localhost:3000", "http://localhost:5502","https://www.biabia-motor.com", "https://adminbiabiamotor.onrender.com", "https://biabia-motor.onrender.com"],
+>>>>>>> 786638eb4bce7df3c61cd239f15f72b2f6939f27
     methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
     allowedHeaders: "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
   })
