@@ -258,18 +258,18 @@ app.delete("/:id", (req, res) => {
 });
 
 app.post("/vente", (req, res) => {
-  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+  const { marque, boiteDeVitesse, kilometrage, consommation, model, image } = req.body;
 
   req.getConnection((erreur, connection) => {
     if (erreur) {
       res.status(500).json({ erreur: "Erreur de connexion à la base de données" });
     } else {
       const query = `
-        INSERT INTO voiture (nom, boiteDeVitesse, prix, consommation, \`condition\`, image) 
+        INSERT INTO voiture (marque, boiteDeVitesse, kilometrage, consommation, model, image) 
         VALUES (?, ?, ?, ?, ?, ?)
       `;
 
-      connection.query(query, [nom, boiteDeVitesse, prix, consommation, condition, image], (erreur, resultat) => {
+      connection.query(query, [marque, boiteDeVitesse, kilometrage, consommation, model, image], (erreur, resultat) => {
         if (erreur) {
           console.error("Erreur SQL:", erreur);
           res.status(500).json({ erreur: "Erreur lors de la requête SQL", details: erreur });
@@ -285,7 +285,7 @@ app.post("/vente", (req, res) => {
 
 //route put oiture
 app.put("/vente/:id", (req, res) => {
-  const { nom, boiteDeVitesse, prix, consommation, condition, image } = req.body;
+  const { marque, boiteDeVitesse, kilometrage, consommation, model, image } = req.body;
   const { id } = req.params;  // Id de la voiture à mettre à jour
 
   req.getConnection((erreur, connection) => {
@@ -294,10 +294,10 @@ app.put("/vente/:id", (req, res) => {
     } else {
       const query = `
         UPDATE voiture 
-        SET nom = ?, boiteDeVitesse = ?, prix = ?, consommation = ?, \`condition\` = ?, image = ? 
+        SET marque = ?, boiteDeVitesse = ?, kilometrage = ?, consommation = ?, model = ?, image = ? 
         WHERE id = ?
       `;
-      connection.query(query, [nom, boiteDeVitesse, prix, consommation, condition, image, id], (erreur, resultat) => {
+      connection.query(query, [marque, boiteDeVitesse, kilometrage, consommation, model, image, id], (erreur, resultat) => {
         if (erreur) {
           res.status(500).json({ erreur: "Erreur lors de la requête SQL" });
         } else if (resultat.affectedRows === 0) {
